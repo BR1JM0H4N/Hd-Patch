@@ -7,7 +7,7 @@
 **Put your sharp HD original back into an outpainted image, seamlessly and 100% on your device.**
 
 <br>
-
+<a href="https://github.com/BR1JM0H4N/Hd-Patch/releases/"><img src="https://img.shields.io/badge/Download-Android%20APK-BCCBB1?style=for-the-badge&logo=githubpages&logoColor=0C0F0A&labelColor=374430" alt="Download APK"></a>
 <a href="https://br1jm0h4n.github.io/Hd-Patch/"><img src="https://img.shields.io/badge/%E2%96%B6%20Live%20Demo-Open%20the%20App-BCCBB1?style=for-the-badge&logo=githubpages&logoColor=0C0F0A&labelColor=374430" alt="Live demo"></a>
 <a href="https://github.com/BR1JM0H4N/Hd-Patch"><img src="https://img.shields.io/badge/Source-GitHub-181717?style=for-the-badge&logo=github&logoColor=white" alt="Source on GitHub"></a>
 
