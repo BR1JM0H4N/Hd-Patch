@@ -728,6 +728,24 @@
     @keyframes popin{from{opacity:0;transform:scale(.92) translateY(12px)}to{opacity:1;transform:none}}
     @keyframes spin{to{transform:rotate(360deg)}}
     @keyframes slide{0%{margin-left:-38%}100%{margin-left:100%}}
+    /* compact layout + pinned preview */
+    .appbar{padding:10px 16px 8px}
+    h1{font-size:24px}
+    main{padding:4px 12px 64px}
+    section{padding:14px 12px;margin-bottom:10px;border-radius:24px}
+    h2{font-size:18px}
+    .hint{margin:0 0 8px;font-size:13px}
+    .row{margin:8px 0;gap:8px}
+    .status{padding:8px 12px;margin:4px 0;font-size:14px}
+    .stagewrap{position:sticky;top:var(--bar,56px);z-index:4;padding:8px;margin-top:6px;border-radius:20px;box-shadow:0 10px 10px -8px rgba(0,0,0,.75)}
+    #view{width:auto;height:auto;max-width:100%;max-height:50vh;margin:0 auto}
+    .empty{padding:28px 12px}
+    .tune{padding:10px;margin-top:8px}
+    .tunegrid{gap:12px 20px}
+    .nudge{grid-template-columns:repeat(3,44px);grid-template-rows:repeat(3,44px);gap:4px}
+    .nudge button{width:44px;height:44px;font-size:20px}
+    .fine .btns button{min-height:44px;padding:6px 10px}
+    .fine{gap:6px}
     /* snackbar */
     .snack {
       position: fixed;
@@ -870,10 +888,10 @@
     <section id="secBlend" class="locked" aria-labelledby="h-blend">
       <h2 id="h-blend">Blend and export</h2>
       <div class="row">
-        <label class="f"><span>Edge feather <b id="feVal">10</b> px</span>
-          <input type="range" id="feather" min="0" max="80" value="10"></label>
-        <label class="f"><span>Color match <b id="cmVal">100%</b></span>
-          <input type="range" id="colorMatch" min="0" max="100" value="100"></label>
+        <label class="f"><span>Edge feather <b id="feVal">24</b> px</span>
+          <input type="range" id="feather" min="0" max="80" value="24"></label>
+        <label class="f"><span>Color match <b id="cmVal">0%</b></span>
+          <input type="range" id="colorMatch" min="0" max="100" value="0"></label>
       </div>
       <div class="row">
         <label class="f"><span>Output size</span>
@@ -1622,6 +1640,9 @@
       $('btnAspect').addEventListener('click', ()=> {
         if (!S.big||!S.hd)return;
         const cy = S.y+S.h*S.r*S.a/2; S.a = 1; S.y = cy-S.h*S.r/2; moved(); setStatus('Stretch reset: width and height use the same scale.')});
+      function setBar() {
+        document.documentElement.style.setProperty('--bar', $('appbar').offsetHeight+'px')}
+      setBar(); window.addEventListener('resize', setBar); window.addEventListener('load', setBar);
       function rng(el) {
         el.style.setProperty('--pct',
           ((el.value-el.min)/(el.max-el.min)*100)+'%')}
