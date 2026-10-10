@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>HD Patch – put your HD original back into an outpainted image</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#eef1f4; --panel:#ffffff; --ink:#14202b; --muted:#5a6876; --line:#cfd6de;
+  --accent:#d6246e; --accent-ink:#ffffff; --stage:#0f1519; --ok:#1a7f55;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0e1317; --panel:#171e24; --ink:#e8edf2; --muted:#93a1ae; --line:#2c3640;
+    --accent:#ff5c9a; --accent-ink:#1a0610; --stage:#05080a; --ok:#4cd39a;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0e1317; --panel:#171e24; --ink:#e8edf2; --muted:#93a1ae; --line:#2c3640;
+  --accent:#ff5c9a; --accent-ink:#1a0610; --stage:#05080a; --ok:#4cd39a;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px);height:100%}
+*,*::before,*::after{box-sizing:inherit}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:"Bricolage Grotesque",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-size:16px; line-height:1.45; -webkit-text-size-adjust:100%;
+}
+main{max-width:880px;margin:0 auto;padding:20px 16px 56px}
+h1{font-size:clamp(28px,7vw,42px);line-height:1.02;margin:8px 0 8px;font-weight:800;letter-spacing:-.02em}
+h2{font-size:19px;margin:0 0 4px;font-weight:700;letter-spacing:-.01em}
+p{margin:0 0 10px}
+.lede{color:var(--muted);max-width:60ch;margin-bottom:22px}
+section{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:16px}
+.hint{color:var(--muted);font-size:14px;margin:0 0 12px}
+.pickers{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:520px){.pickers{grid-template-columns:1fr}}
+.pick{
+  position:relative;display:flex;gap:12px;align-items:center;min-height:92px;
+  border:1.5px dashed var(--line);border-radius:10px;padding:10px;cursor:pointer;
+}
+.pick:focus-within,.pick:hover{border-color:var(--accent)}
+.pick input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.pick .thumb{width:64px;height:80px;border-radius:6px;background:var(--bg);flex:none;object-fit:contain;display:block}
+.pick b{display:block;font-weight:600}
+.pick small{color:var(--muted);display:block}
+.pick.done{border-style:solid;border-color:var(--ok)}
+button{
+  font:inherit;font-weight:600;border-radius:10px;border:1.5px solid var(--line);
+  background:var(--panel);color:var(--ink);padding:10px 14px;min-height:44px;cursor:pointer;
+}
+button:hover:not(:disabled){border-color:var(--accent)}
+button:focus-visible,input:focus-visible,select:focus-visible,canvas:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+button:disabled{opacity:.45;cursor:not-allowed}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:10px 0}
+.seg{display:inline-flex;border:1.5px solid var(--line);border-radius:10px;overflow:hidden}
+.seg button{border:0;border-radius:0;min-height:40px;padding:8px 14px}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.stagewrap{position:relative;padding:14px;background:var(--stage);border-radius:10px;margin-top:6px}
+/* registration marks */
+.stagewrap i{position:absolute;width:14px;height:14px;border:0 solid var(--accent)}
+.stagewrap i:nth-of-type(1){top:3px;left:3px;border-top-width:2px;border-left-width:2px}
+.stagewrap i:nth-of-type(2){top:3px;right:3px;border-top-width:2px;border-right-width:2px}
+.stagewrap i:nth-of-type(3){bottom:3px;left:3px;border-bottom-width:2px;border-left-width:2px}
+.stagewrap i:nth-of-type(4){bottom:3px;right:3px;border-bottom-width:2px;border-right-width:2px}
+#view{display:block;width:100%;height:auto;max-height:78vh;margin:0 auto;touch-action:none;cursor:grab;background:#222;object-fit:contain}
+#view:active{cursor:grabbing}
+.empty{color:#9fb0bf;text-align:center;padding:60px 12px}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:14px;color:var(--muted);min-width:150px;flex:1}
+label.f span b{color:var(--ink);font-weight:600}
+input[type=range]{width:100%;accent-color:var(--accent);min-height:32px}
+select{font:inherit;padding:10px;border-radius:10px;border:1.5px solid var(--line);background:var(--panel);color:var(--ink);min-height:44px}
+.nudge{display:grid;grid-template-columns:repeat(3,48px);grid-template-rows:repeat(3,44px);gap:6px}
+.nudge button{padding:0;font-size:20px}
+.nudge .u{grid-column:2;grid-row:1}.nudge .l{grid-column:1;grid-row:2}.nudge .rr{grid-column:3;grid-row:2}.nudge .d{grid-column:2;grid-row:3}
+.fine{display:flex;flex-direction:column;gap:6px}
+.fine .btns{display:flex;gap:6px;flex-wrap:wrap}
+.fine .btns button{padding:8px 10px;min-height:44px;min-width:58px}
+.readout{font-variant-numeric:tabular-nums;color:var(--muted);font-size:14px}
+.status{min-height:22px;font-size:15px}
+.status.ok{color:var(--ok)}.status.warn{color:var(--accent)}
+progress{width:100%;height:8px;accent-color:var(--accent);display:none}
+progress.on{display:block}
+.out{display:none;margin-top:12px}
+.out.on{display:block}
+.out canvas{max-width:100%;max-height:360px;border-radius:8px;border:1px solid var(--line)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<main>
+  <h1>HD Patch</h1>
+  <p class="lede">Outpainting tools return a low-resolution picture. Drop that picture in, add your sharp original, and this page finds where the original belongs, stretches the outpainted image to match, and puts the HD pixels back. Everything runs in your browser; nothing is uploaded.</p>
+
+  <section aria-labelledby="h-files">
+    <h2 id="h-files">Your two images</h2>
+    <p class="hint">The original is never resized in the default output.</p>
+    <div class="pickers">
+      <label class="pick" id="pickBig">
+        <img class="thumb" id="thumbBig" alt="" src="data:image/gif;base64,R0lGODlhAQABAAAAACw=">
+        <span><b>Outpainted image</b><small id="infoBig">Tap to choose (the big, low-res one)</small></span>
+        <input type="file" accept="image/*" id="fileBig">
+      </label>
+      <label class="pick" id="pickHd">
+        <img class="thumb" id="thumbHd" alt="" src="data:image/gif;base64,R0lGODlhAQABAAAAACw=">
+        <span><b>HD original</b><small id="infoHd">Tap to choose (the small, sharp one)</small></span>
+        <input type="file" accept="image/*" id="fileHd">
+      </label>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-align">
+    <h2 id="h-align">Align</h2>
+    <p class="hint">Auto-align finds the scale and position. Then check it in Difference view, where a perfect fit turns dark, and nudge if needed. Drag to move, pinch or scroll to scale.</p>
+    <div class="row">
+      <button class="primary" id="btnAuto" disabled>Auto-align</button>
+      <button id="btnReset" disabled>Reset</button>
+      <div class="seg" role="group" aria-label="View mode">
+        <button id="mOverlay" aria-pressed="true">Overlay</button>
+        <button id="mDiff" aria-pressed="false">Difference</button>
+        <button id="mResult" aria-pressed="false">Result</button>
+      </div>
+    </div>
+    <progress id="prog" max="100" value="0"></progress>
+    <div class="status" id="status" role="status" aria-live="polite">Choose both images to begin.</div>
+
+    <div class="stagewrap">
+      <i></i><i></i><i></i><i></i>
+      <div class="empty" id="empty">Your images will appear here.</div>
+      <canvas id="view" tabindex="0" aria-label="Alignment view. Drag to move the HD image, arrow keys to nudge." hidden></canvas>
+    </div>
+
+    <div class="row" id="ovRow">
+      <label class="f"><span>Overlay opacity <b id="opVal">55%</b></span>
+        <input type="range" id="opacity" min="5" max="100" value="55"></label>
+    </div>
+
+    <div class="row" style="align-items:flex-start;gap:22px">
+      <div class="fine">
+        <span class="readout">Nudge (outpainted px)</span>
+        <div class="seg" role="group" aria-label="Nudge step">
+          <button data-step="4" aria-pressed="false">4</button>
+          <button data-step="1" aria-pressed="true">1</button>
+          <button data-step="0.2" aria-pressed="false">0.2</button>
+        </div>
+        <div class="nudge">
+          <button class="u" data-dx="0" data-dy="-1" aria-label="Move up">↑</button>
+          <button class="l" data-dx="-1" data-dy="0" aria-label="Move left">←</button>
+          <button class="rr" data-dx="1" data-dy="0" aria-label="Move right">→</button>
+          <button class="d" data-dx="0" data-dy="1" aria-label="Move down">↓</button>
+        </div>
+      </div>
+      <div class="fine">
+        <span class="readout">Scale</span>
+        <div class="btns">
+          <button data-sc="-0.01">−1%</button>
+          <button data-sc="-0.001">−0.1%</button>
+          <button data-sc="0.001">+0.1%</button>
+          <button data-sc="0.01">+1%</button>
+        </div>
+        <span class="readout" id="scaleOut">–</span>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-blend">
+    <h2 id="h-blend">Blend and export</h2>
+    <div class="row">
+      <label class="f"><span>Edge feather <b id="feVal">10</b> px (HD pixels)</span>
+        <input type="range" id="feather" min="0" max="80" value="10"></label>
+      <label class="f"><span>Color match <b id="cmVal">100%</b></span>
+        <input type="range" id="colorMatch" min="0" max="100" value="100"></label>
+    </div>
+    <div class="row">
+      <label class="f"><span>Output size</span>
+        <select id="outSize">
+          <option value="native">Native: HD pixels stay 1:1</option>
+          <option value="3840">4K: long side 3840 px</option>
+          <option value="7680">8K: long side 7680 px</option>
+        </select></label>
+    </div>
+    <div class="readout" id="outInfo">–</div>
+    <div class="row">
+      <button class="primary" id="btnExport" disabled>Create PNG</button>
+      <button id="btnSave" disabled>Save PNG</button>
+    </div>
+    <div class="out" id="out"><canvas id="outCanvas"></canvas></div>
+  </section>
+</main>
+
+<script>
+(function(){
+"use strict";
+const $=id=>document.getElementById(id);
+const S={big:null,hd:null,bw:0,bh:0,w:0,h:0,r:0.5,x:0,y:0,mode:'overlay',step:1,busy:false,resultCanvas:null,exportBlob:null};
+const view=$('view'),vctx=view.getContext('2d');
+const tick=()=>new Promise(r=>setTimeout(r,0));
+
+/* ---------- helpers ---------- */
+function mk(w,h,wrf){const c=document.createElement('canvas');c.width=Math.max(1,Math.round(w));c.height=Math.max(1,Math.round(h));if(wrf)c.getContext('2d',{willReadFrequently:true});return c}
+function shrink(src,tw,th,wrf){
+  tw=Math.max(1,Math.round(tw));th=Math.max(1,Math.round(th));
+  let w=src.width,h=src.height,cur=src;
+  while(w/2>=tw&&h/2>=th){w=Math.floor(w/2);h=Math.floor(h/2);const c=mk(w,h);const g=c.getContext('2d');g.imageSmoothingQuality='high';g.drawImage(cur,0,0,w,h);cur=c}
+  const c=mk(tw,th,wrf);const g=c.getContext('2d');g.imageSmoothingQuality='high';g.drawImage(cur,0,0,tw,th);return c
+}
+function grayOf(c){
+  const d=c.getContext('2d').getImageData(0,0,c.width,c.height).data,n=d.length>>2,g=new Float32Array(n);
+  for(let i=0,j=0;i<n;i++,j+=4)g[i]=0.299*d[j]+0.587*d[j+1]+0.114*d[j+2];
+  return g
+}
+async function loadImg(file){
+  try{return await createImageBitmap(file)}catch(e){
+    return await new Promise((res,rej)=>{
+      const fr=new FileReader();
+      fr.onload=()=>{const im=new Image();im.onload=()=>res(im);im.onerror=rej;im.src=fr.result};
+      fr.onerror=rej;fr.readAsDataURL(file)
+    })
+  }
+}
+function setStatus(t,cls){const s=$('status');s.textContent=t;s.className='status'+(cls?' '+cls:'')}
+function thumbOf(img){const c=shrink(img,64,80);return c.toDataURL('image/png')}
+
+/* ---------- loading ---------- */
+async function onFile(kind,file){
+  if(!file)return;
+  try{
+    const img=await loadImg(file);
+    const w=img.width,h=img.height;
+    if(kind==='big'){S.big=img;S.bw=w;S.bh=h}else{S.hd=img;S.w=w;S.h=h}
+    const t=kind==='big'?'Big':'Hd';
+    $('info'+t).textContent=file.name+' · '+w+'×'+h;
+    const sc=Math.min(64/w,80/h);
+    $('thumb'+t).src=shrink(img,Math.max(1,w*sc),Math.max(1,h*sc)).toDataURL('image/png');
+    $('pick'+t).classList.add('done');
+    S.exportBlob=null;$('btnSave').disabled=true;
+    if(S.big&&S.hd)ready();
+  }catch(e){setStatus('Could not read that file. Try a PNG or JPG.','warn')}
+}
+function ready(){
+  $('empty').hidden=true;view.hidden=false;
+  resetPlacement();
+  ['btnAuto','btnReset','btnExport'].forEach(i=>$(i).disabled=false);
+  const cw=Math.min(S.bw,1100);view.width=cw;view.height=Math.round(S.bh*cw/S.bw);
+  S.resultCanvas=null;
+  setStatus('Ready. Press Auto-align, or position the HD image by hand.');
+  draw();updateInfo();
+}
+function resetPlacement(){
+  S.r=Math.min(S.bw/S.w,S.bh/S.h)*0.6;
+  S.x=(S.bw-S.w*S.r)/2;S.y=(S.bh-S.h*S.r)/2;S.resultCanvas=null;
+}
+$('fileBig').addEventListener('change',e=>onFile('big',e.target.files[0]));
+$('fileHd').addEventListener('change',e=>onFile('hd',e.target.files[0]));
+
+/* ---------- drawing ---------- */
+function draw(){
+  if(!S.big||!S.hd)return;
+  const cw=view.width,ch=view.height,d=cw/S.bw;
+  vctx.imageSmoothingQuality='high';
+  vctx.globalAlpha=1;vctx.globalCompositeOperation='source-over';
+  vctx.clearRect(0,0,cw,ch);
+  if(S.mode==='result'){
+    if(S.resultCanvas)vctx.drawImage(S.resultCanvas,0,0,cw,ch);
+    else vctx.drawImage(S.big,0,0,cw,ch);
+  }else{
+    vctx.drawImage(S.big,0,0,cw,ch);
+    const dx=S.x*d,dy=S.y*d,dw=S.w*S.r*d,dh=S.h*S.r*d;
+    const hdSmall=hdForDisplay(dw,dh);
+    if(S.mode==='overlay'){vctx.globalAlpha=$('opacity').value/100;vctx.drawImage(hdSmall,dx,dy,dw,dh);vctx.globalAlpha=1}
+    else{vctx.globalCompositeOperation='difference';vctx.drawImage(hdSmall,dx,dy,dw,dh);vctx.globalCompositeOperation='source-over'}
+    vctx.strokeStyle=getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()||'#d6246e';
+    vctx.lineWidth=Math.max(1.5,cw/500);vctx.setLineDash([6,5]);vctx.strokeRect(dx,dy,dw,dh);vctx.setLineDash([]);
+  }
+  $('scaleOut').textContent='Scale '+S.r.toFixed(4)+'  ('+(1/S.r).toFixed(3)+'× smaller than HD)';
+}
+let hdDispCache=null;
+function hdForDisplay(dw,dh){
+  const tw=Math.max(8,Math.round(dw)),th=Math.max(8,Math.round(dh));
+  if(hdDispCache&&Math.abs(hdDispCache.width-tw)<=2&&Math.abs(hdDispCache.height-th)<=2)return hdDispCache;
+  hdDispCache=shrink(S.hd,tw,th);return hdDispCache
+}
+function invalidate(){S.resultCanvas=null;S.exportBlob=null;$('btnSave').disabled=true;if(S.mode==='result')setMode('overlay')}
+function moved(){invalidate();draw();updateInfo()}
+
+/* ---------- interaction ---------- */
+const ptrs=new Map();
+view.addEventListener('pointerdown',e=>{
+  if(S.mode==='result'||S.busy)return;
+  view.setPointerCapture(e.pointerId);ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+});
+view.addEventListener('pointermove',e=>{
+  if(!ptrs.has(e.pointerId))return;
+  const rect=view.getBoundingClientRect(),u=S.bw/rect.width;
+  const old=[...ptrs.values()].map(p=>({x:p.x,y:p.y}));
+  const prev=ptrs.get(e.pointerId);
+  const cur={x:e.clientX,y:e.clientY};
+  if(ptrs.size===1){S.x+=(cur.x-prev.x)*u;S.y+=(cur.y-prev.y)*u;ptrs.set(e.pointerId,cur)}
+  else if(ptrs.size===2){
+    const keys=[...ptrs.keys()];ptrs.set(e.pointerId,cur);
+    const nw=keys.map(k=>ptrs.get(k));
+    const od=Math.hypot(old[0].x-old[1].x,old[0].y-old[1].y),nd=Math.hypot(nw[0].x-nw[1].x,nw[0].y-nw[1].y);
+    const om={x:(old[0].x+old[1].x)/2,y:(old[0].y+old[1].y)/2},nm={x:(nw[0].x+nw[1].x)/2,y:(nw[0].y+nw[1].y)/2};
+    if(od>10){const s=nd/od;zoomAbout((nm.x-rect.left)*u,(nm.y-rect.top)*u,s)}
+    S.x+=(nm.x-om.x)*u;S.y+=(nm.y-om.y)*u;
+  }
+  moved();
+});
+['pointerup','pointercancel','pointerleave'].forEach(t=>view.addEventListener(t,e=>{ptrs.delete(e.pointerId)}));
+function zoomAbout(px,py,s){
+  const nr=Math.min(5,Math.max(0.02,S.r*s)),k=nr/S.r;
+  S.x=px-(px-S.x)*k;S.y=py-(py-S.y)*k;S.r=nr;
+}
+view.addEventListener('wheel',e=>{
+  if(S.mode==='result'||!S.big||!S.hd)return;
+  e.preventDefault();
+  const rect=view.getBoundingClientRect(),u=S.bw/rect.width;
+  zoomAbout((e.clientX-rect.left)*u,(e.clientY-rect.top)*u,Math.exp(-e.deltaY*0.0015));moved();
+},{passive:false});
+view.addEventListener('keydown',e=>{
+  const m={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]}[e.key];
+  if(m){e.preventDefault();nudge(m[0],m[1])}
+});
+function nudge(dx,dy){S.x+=dx*S.step;S.y+=dy*S.step;moved()}
+document.querySelectorAll('.nudge button').forEach(b=>b.addEventListener('click',()=>{if(S.big&&S.hd)nudge(+b.dataset.dx,+b.dataset.dy)}));
+document.querySelectorAll('[data-step]').forEach(b=>b.addEventListener('click',()=>{
+  S.step=+b.dataset.step;document.querySelectorAll('[data-step]').forEach(x=>x.setAttribute('aria-pressed',x===b?'true':'false'))
+}));
+document.querySelectorAll('[data-sc]').forEach(b=>b.addEventListener('click',()=>{
+  if(!S.big||!S.hd)return;
+  const f=1+(+b.dataset.sc),cx=S.x+S.w*S.r/2,cy=S.y+S.h*S.r/2;zoomAbout(cx,cy,f);moved();
+}));
+$('opacity').addEventListener('input',e=>{$('opVal').textContent=e.target.value+'%';draw()});
+$('btnReset').addEventListener('click',()=>{resetPlacement();invalidate();draw();updateInfo();setStatus('Placement reset.')});
+
+function setMode(m){
+  S.mode=m;
+  [['mOverlay','overlay'],['mDiff','diff'],['mResult','result']].forEach(([id,k])=>$(id).setAttribute('aria-pressed',k===m?'true':'false'));
+  $('ovRow').style.display=m==='overlay'?'flex':'none';
+}
+$('mOverlay').addEventListener('click',()=>{setMode('overlay');draw()});
+$('mDiff').addEventListener('click',()=>{setMode('diff');draw()});
+$('mResult').addEventListener('click',async()=>{
+  if(!S.big||!S.hd||S.busy)return;
+  setMode('result');setStatus('Building preview…');await tick();
+  const k=Math.min(1,900/(S.bw/S.r));
+  S.resultCanvas=compose(k);draw();setStatus('Preview of the final blend. Switch back to Overlay to adjust.','ok');
+});
+
+/* ---------- auto-align ---------- */
+function setBusy(b){S.busy=b;['btnAuto','btnReset','btnExport'].forEach(i=>$(i).disabled=b||!(S.big&&S.hd));$('prog').className=b?'on':''}
+function prog(v){$('prog').value=v}
+
+function nccFactory(ref,hg){
+  // hg: reference gray (Float32Array); returns evaluator for parameters
+  const n=hg.length;let sH=0,sHH=0;for(let i=0;i<n;i++){sH+=hg[i];sHH+=hg[i]*hg[i]}
+  const vH=n*sHH-sH*sH;
+  const g=ref.canvas.getContext('2d');
+  return function(r,x,y){
+    const k=ref.q/r;
+    g.setTransform(1,0,0,1,0,0);g.fillStyle='#808080';g.fillRect(0,0,ref.canvas.width,ref.canvas.height);
+    g.imageSmoothingQuality='high';
+    g.drawImage(S.big,-x*k,-y*k,S.bw*k,S.bh*k);
+    const d=g.getImageData(0,0,ref.canvas.width,ref.canvas.height).data;
+    let sA=0,sAA=0,sAB=0;
+    for(let i=0,j=0;i<n;i++,j+=4){const v=0.299*d[j]+0.587*d[j+1]+0.114*d[j+2];sA+=v;sAA+=v*v;sAB+=v*hg[i]}
+    const vA=n*sAA-sA*sA;if(vA<=1e-6||vH<=1e-6)return -1;
+    return (n*sAB-sA*sH)/Math.sqrt(vA*vH)
+  }
+}
+function makeRef(refW){
+  const q=refW/S.w,rh=Math.round(S.h*q);
+  const hd=shrink(S.hd,refW,rh,true);
+  const canvas=mk(refW,rh,true);
+  const ref={q,canvas};
+  return {ref,evalFn:nccFactory(ref,grayOf(hd))};
+}
+function withScale(p,f){
+  const nr=p.r*f,cx=p.x+S.w*p.r/2,cy=p.y+S.h*p.r/2;
+  return {r:nr,x:cx-S.w*nr/2,y:cy-S.h*nr/2}
+}
+async function descend(evalFn,p0,lr,xy,minLr,minXY,maxEvals,pLo,pHi){
+  let p=p0,best=evalFn(p.r,p.x,p.y),evals=1;
+  while((lr>minLr||xy>minXY)&&evals<maxEvals){
+    let improved=false;
+    const tries=[
+      ()=>withScale(p,1+lr),()=>withScale(p,1/(1+lr)),
+      ()=>({r:p.r,x:p.x+xy,y:p.y}),()=>({r:p.r,x:p.x-xy,y:p.y}),
+      ()=>({r:p.r,x:p.x,y:p.y+xy}),()=>({r:p.r,x:p.x,y:p.y-xy})
+    ];
+    for(const t of tries){
+      const c=t();const s=evalFn(c.r,c.x,c.y);evals++;
+      if(s>best+1e-5){best=s;p=c;improved=true}
+    }
+    if(!improved){lr/=2;xy/=2}
+    if(evals%6===0){await tick()}
+  }
+  return {p,score:best}
+}
+
+async function autoAlign(){
+  if(!S.big||!S.hd||S.busy)return;
+  setBusy(true);setMode('overlay');
+  try{
+    setStatus('Searching for the HD image inside the outpainted one…');prog(2);await tick();
+    const f=Math.max(1,S.bw/130),cw=Math.round(S.bw/f),ch=Math.round(S.bh/f);
+    const B=grayOf(shrink(S.big,cw,ch,true));
+    const iw=cw+1,I1=new Float64Array(iw*(ch+1)),I2=new Float64Array(iw*(ch+1));
+    for(let y=0;y<ch;y++){let rs=0,rs2=0;for(let x=0;x<cw;x++){const v=B[y*cw+x];rs+=v;rs2+=v*v;I1[(y+1)*iw+x+1]=I1[y*iw+x+1]+rs;I2[(y+1)*iw+x+1]=I2[y*iw+x+1]+rs2}}
+    const win=(I,x,y,w,h)=>I[(y+h)*iw+x+w]-I[y*iw+x+w]-I[(y+h)*iw+x]+I[y*iw+x];
+    const rmax=Math.min(S.bw/S.w,S.bh/S.h)*1.03,rmin=rmax*0.12;
+    const scales=[];for(let r=rmax;r>=rmin;r/=1.06)scales.push(r);
+    const found=[];
+    for(let si=0;si<scales.length;si++){
+      const r=scales[si],tw=Math.round(S.w*r/f),th=Math.round(S.h*r/f);
+      if(tw<20||th<20)break;
+      if(tw>cw||th>ch)continue;
+      const T=grayOf(shrink(S.hd,tw,th,true)),n=tw*th;
+      let m=0;for(let i=0;i<n;i++)m+=T[i];m/=n;
+      let tn=0;for(let i=0;i<n;i++){T[i]-=m;tn+=T[i]*T[i]}tn=Math.sqrt(tn);
+      if(tn<1e-3)continue;
+      let bs=-2,bx=0,by=0;
+      for(let y0=0;y0<=ch-th;y0++)for(let x0=0;x0<=cw-tw;x0++){
+        const s1=win(I1,x0,y0,tw,th),s2=win(I2,x0,y0,tw,th),vI=s2-s1*s1/n;
+        if(vI<1e-6)continue;
+        let cross=0;
+        for(let j=0;j<th;j++){let bi=(y0+j)*cw+x0,ti=j*tw;for(let i=0;i<tw;i++)cross+=T[ti+i]*B[bi+i]}
+        const sc=cross/(tn*Math.sqrt(vI));
+        if(sc>bs){bs=sc;bx=x0;by=y0}
+      }
+      found.push({score:bs,r,x:bx*f,y:by*f});
+      prog(2+60*(si+1)/scales.length);
+      await tick();
+    }
+    if(!found.length)throw new Error('The HD image looks too small or too large to search for.');
+    found.sort((a,b)=>b.score-a.score);
+    const cands=[];
+    for(const c of found){
+      if(cands.every(o=>Math.abs(Math.log(c.r/o.r))>0.12||Math.hypot(c.x-o.x,c.y-o.y)>f*10))cands.push(c);
+      if(cands.length>=3)break;
+    }
+    setStatus('Refining the best matches…');prog(66);await tick();
+    const A=makeRef(300);
+    let best=null;
+    for(let i=0;i<cands.length;i++){
+      const c=cands[i];
+      const res=await descend(A.evalFn,{r:c.r,x:c.x,y:c.y},0.03,f,0.002,0.5,160);
+      if(!best||res.score>best.score)best=res;
+      prog(66+8*(i+1));await tick();
+    }
+    setStatus('Fine-tuning to sub-pixel accuracy…');prog(92);await tick();
+    const Bf=makeRef(Math.min(700,S.w));
+    const fin=await descend(Bf.evalFn,best.p,0.004,0.7,0.0003,0.05,260);
+    S.r=fin.p.r;S.x=fin.p.x;S.y=fin.p.y;
+    invalidate();draw();updateInfo();prog(100);
+    const sc=fin.score;
+    if(sc>=0.75)setStatus('Aligned. Match score '+sc.toFixed(2)+'. Check Difference view and nudge if you see an edge.','ok');
+    else setStatus('Low confidence (score '+sc.toFixed(2)+'). Use Difference view and adjust by hand.','warn');
+  }catch(err){setStatus(String(err&&err.message||err),'warn')}
+  finally{setBusy(false)}
+}
+$('btnAuto').addEventListener('click',autoAlign);
+
+/* ---------- compose ---------- */
+function compose(k){
+  const kk=k/S.r,W=Math.round(S.bw*kk),H=Math.round(S.bh*kk);
+  const out=mk(W,H,true),g=out.getContext('2d');
+  g.imageSmoothingQuality='high';
+  g.drawImage(S.big,0,0,W,H);
+  const px=Math.round(S.x*kk),py=Math.round(S.y*kk),pw=Math.round(S.w*k),ph=Math.round(S.h*k);
+  // redraw base shifted by the sub-pixel remainder so the HD lands on whole pixels
+  g.drawImage(S.big,px-S.x*kk,py-S.y*kk,S.bw*kk,S.bh*kk);
+  const reg=g.getImageData(px,py,pw,ph);
+  // HD at output scale
+  const hdC=(pw===S.w&&ph===S.h)?(()=>{const c=mk(pw,ph,true);c.getContext('2d').drawImage(S.hd,0,0);return c})():(()=>{
+    if(k<1)return shrink(S.hd,pw,ph,true);
+    const c=mk(pw,ph,true),cg=c.getContext('2d');cg.imageSmoothingQuality='high';cg.drawImage(S.hd,0,0,pw,ph);return c})();
+  const hdD=hdC.getContext('2d').getImageData(0,0,pw,ph);
+  const hd=hdD.data,rg=reg.data;
+  // low-frequency color correction
+  const cm=$('colorMatch').value/100;
+  let corr=null;
+  if(cm>0){
+    const sw=Math.max(4,Math.round(pw/16)),sh=Math.max(4,Math.round(ph/16));
+    const regC=mk(pw,ph);regC.getContext('2d').putImageData(reg,0,0);
+    const a=shrink(regC,sw,sh,true).getContext('2d').getImageData(0,0,sw,sh).data;
+    const b=shrink(hdC,sw,sh,true).getContext('2d').getImageData(0,0,sw,sh).data;
+    const dc=mk(sw,sh,true),dg=dc.getContext('2d'),di=dg.createImageData(sw,sh);
+    for(let i=0;i<a.length;i+=4){
+      for(let c=0;c<3;c++)di.data[i+c]=Math.max(0,Math.min(255,128+(a[i+c]-b[i+c])));
+      di.data[i+3]=255;
+    }
+    dg.putImageData(di,0,0);
+    const up=mk(pw,ph,true),ug=up.getContext('2d');ug.imageSmoothingEnabled=true;ug.imageSmoothingQuality='high';
+    ug.drawImage(dc,0,0,pw,ph);
+    corr=ug.getImageData(0,0,pw,ph).data;
+  }
+  const fe=Math.max(0,$('feather').value*k);
+  for(let y=0;y<ph;y++){
+    const dy=Math.min(y,ph-1-y);
+    for(let x=0;x<pw;x++){
+      const i=(y*pw+x)*4,d=Math.min(dy,x,pw-1-x);
+      let m=1;
+      if(fe>0){m=Math.min(1,Math.max(0,(d-1)/fe));m=m*m*(3-2*m)}
+      for(let c=0;c<3;c++){
+        let hv=hd[i+c];
+        if(corr)hv+=cm*(corr[i+c]-128);
+        hv=hv<0?0:hv>255?255:hv;
+        hd[i+c]=rg[i+c]*(1-m)+hv*m;
+      }
+      hd[i+3]=255;
+    }
+  }
+  g.putImageData(hdD,px,py);
+  return out;
+}
+
+/* ---------- export ---------- */
+function outScale(){
+  const v=$('outSize').value;
+  if(v==='native')return 1;
+  return (+v)/(Math.max(S.bw,S.bh)/S.r);
+}
+function updateInfo(){
+  if(!S.big||!S.hd){$('outInfo').textContent='–';return}
+  const k=outScale(),W=Math.round(S.bw*k/S.r),H=Math.round(S.bh*k/S.r);
+  let t='Output '+W+' × '+H+' px.';
+  if(k>1.001)t+=' The HD image will be stretched ×'+k.toFixed(2)+'.';
+  else if(k<0.999)t+=' The HD image will be shrunk.';
+  else t+=' The HD image keeps its original pixels.';
+  if(W*H>200e6||Math.max(W,H)>16000)t+=' This is too large for most browsers.';
+  $('outInfo').textContent=t;
+}
+['feather','colorMatch'].forEach(id=>$(id).addEventListener('input',()=>{
+  $('feVal').textContent=$('feather').value;$('cmVal').textContent=$('colorMatch').value+'%';invalidate();
+}));
+$('outSize').addEventListener('change',()=>{updateInfo();S.exportBlob=null;$('btnSave').disabled=true});
+
+$('btnExport').addEventListener('click',async()=>{
+  if(!S.big||!S.hd||S.busy)return;
+  const k=outScale(),W=Math.round(S.bw*k/S.r),H=Math.round(S.bh*k/S.r);
+  if(W*H>200e6||Math.max(W,H)>16000){setStatus('That size is too large for this browser. Pick a smaller output.','warn');return}
+  setBusy(true);setStatus('Building the final image…');await tick();
+  try{
+    const c=compose(k);
+    const blob=await new Promise((res,rej)=>c.toBlob(b=>b?res(b):rej(new Error('The browser could not encode this size.')),'image/png'));
+    S.exportBlob=blob;
+    const oc=$('outCanvas'),sc=Math.min(1,900/c.width);
+    oc.width=Math.round(c.width*sc);oc.height=Math.round(c.height*sc);
+    const og=oc.getContext('2d');og.imageSmoothingQuality='high';og.drawImage(c,0,0,oc.width,oc.height);
+    $('out').className='out on';
+    $('btnSave').disabled=false;
+    setStatus('Done: '+c.width+' × '+c.height+' px, '+(blob.size/1048576).toFixed(1)+' MB. Press Save PNG.','ok');
+  }catch(err){setStatus(String(err&&err.message||err),'warn')}
+  finally{setBusy(false);$('btnSave').disabled=!S.exportBlob}
+});
+
+$('btnSave').addEventListener('click',async()=>{
+  if(!S.exportBlob)return;
+  let dl=null;
+  try{dl=window.claude&&await window.claude.use('downloads')}catch(e){dl=null}
+  if(dl){
+    try{await dl.save({filename:'outpainted-with-hd.png',data:S.exportBlob});setStatus('Saved.','ok')}
+    catch(e){if(!e||e.code!=='declined')setStatus('Saving was not possible here: '+(e&&e.message||'unknown error'),'warn')}
+  }else{
+    try{
+      const u=URL.createObjectURL(S.exportBlob),a=document.createElement('a');
+      a.href=u;a.download='outpainted-with-hd.png';document.body.appendChild(a);a.click();a.remove();
+      setTimeout(()=>URL.revokeObjectURL(u),20000);
+    }catch(e){setStatus('Saving was blocked. Press and hold the preview image to save it.','warn')}
+  }
+});
+
+setMode('overlay');
+})();
+</script>
+</body>
+</html>
