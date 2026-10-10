@@ -698,6 +698,36 @@
       height: 20px;
       fill: currentColor
     }
+
+    /* progress dialog */
+    .scrim{position:fixed;inset:0;z-index:30;background:rgba(0,0,0,.62);display:flex;align-items:center;justify-content:center;padding:calc(24px + var(--safe-area-inset-top,0px)) 24px calc(24px + var(--safe-area-inset-bottom,0px));animation:fadein .2s}
+    .dialog{width:100%;max-width:400px;background:var(--surface-high);color:var(--fg);border-radius:28px;padding:24px;box-shadow:0 8px 32px rgba(0,0,0,.5);outline:none;animation:popin .28s cubic-bezier(.2,0,0,1)}
+    .mhead{display:flex;align-items:center;gap:14px;margin-bottom:6px}
+    .mhead h3{margin:0;font-size:22px;font-weight:600;line-height:1.2}
+    .mico{width:40px;height:40px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;background:var(--acc-container);color:var(--on-acc-container);font-weight:700;font-size:20px}
+    .mico::before{content:"";width:22px;height:22px;border-radius:50%;border:3px solid var(--acc);border-top-color:transparent;animation:spin .8s linear infinite}
+    .dialog.done .mico{background:var(--acc);color:var(--accfg)}
+    .dialog.done .mico::before{content:"✓";width:auto;height:auto;border:0;animation:none;font-size:22px}
+    .dialog.err .mico{background:var(--err);color:var(--surface)}
+    .dialog.err .mico::before{content:"!";width:auto;height:auto;border:0;animation:none;font-size:22px}
+    .msub{margin:0 0 16px 54px;color:var(--mut);font-size:14px}
+    .bar{height:10px;border-radius:5px;background:var(--track);overflow:hidden}
+    .bar i{display:block;height:100%;width:0;background:var(--acc);border-radius:5px;transition:width .25s}
+    .bar.indet i{width:38%!important;animation:slide 1.1s ease-in-out infinite}
+    .mpct{display:flex;justify-content:space-between;margin:8px 0 14px;font-size:14px;color:var(--mut);font-variant-numeric:tabular-nums}
+    .mpct b{color:var(--fg);font-weight:600}
+    .steps{list-style:none;margin:0 0 18px;padding:0;display:flex;flex-direction:column;gap:10px}
+    .steps li{display:flex;align-items:center;gap:12px;font-size:15px;color:var(--mut)}
+    .steps li::before{content:"";width:20px;height:20px;border-radius:50%;border:2px solid var(--line);flex:none;display:flex;align-items:center;justify-content:center}
+    .steps li.active{color:var(--fg);font-weight:500}
+    .steps li.active::before{border-color:var(--acc);border-top-color:transparent;animation:spin .8s linear infinite}
+    .steps li.done{color:var(--fg)}
+    .steps li.done::before{content:"✓";background:var(--acc);border-color:var(--acc);color:var(--accfg);font-size:12px;font-weight:700}
+    .mact{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap}
+    @keyframes fadein{from{opacity:0}to{opacity:1}}
+    @keyframes popin{from{opacity:0;transform:scale(.92) translateY(12px)}to{opacity:1;transform:none}}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    @keyframes slide{0%{margin-left:-38%}100%{margin-left:100%}}
     /* snackbar */
     .snack {
       position: fixed;
@@ -818,7 +848,12 @@
             </div>
           </div>
           <div class="fine">
-            <span class="readout">Scale</span>
+            <span class="readout">Scale axis</span>
+            <div class="seg fit" role="group" aria-label="Scale axis">
+              <button data-axis="both" aria-pressed="true">Both</button>
+              <button data-axis="x" aria-pressed="false">Width</button>
+              <button data-axis="y" aria-pressed="false">Height</button>
+            </div>
             <div class="btns">
               <button data-sc="-0.01">−1%</button>
               <button data-sc="0.01">+1%</button>
@@ -826,6 +861,7 @@
               <button data-sc="0.001">+0.1%</button>
             </div>
             <span class="readout" id="scaleOut">–</span>
+            <button id="btnAspect" style="min-height:40px;padding:6px 16px">Reset stretch</button>
           </div>
         </div>
       </div>
@@ -875,13 +911,32 @@
   </footer>
   <div class="safe-bottom-patch"></div>
 
+  <div class="scrim" id="modal" hidden>
+    <div class="dialog" id="mDialog" role="dialog" aria-modal="true" aria-labelledby="mTitle" tabindex="-1">
+      <div class="mhead"><span class="mico" id="mIco" aria-hidden="true"></span><h3 id="mTitle">Creating PNG</h3></div>
+      <p class="msub" id="mSub">–</p>
+      <div class="bar" id="mBar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="mFill"></i></div>
+      <div class="mpct"><b id="mPct" aria-live="polite">0%</b><span id="mEta"></span></div>
+      <ol class="steps" id="mSteps">
+        <li>Preparing canvas</li>
+        <li>Placing the HD original</li>
+        <li>Matching colors</li>
+        <li>Blending edges</li>
+        <li>Encoding PNG</li>
+      </ol>
+      <div class="mact">
+        <button id="mCancel">Cancel</button>
+        <button class="primary" id="mSave" hidden>Save PNG</button>
+      </div>
+    </div>
+  </div>
   <div class="snack" id="snack" role="status" aria-live="polite"></div>
   <script>
     (function() {
       "use strict";
       const $ = id=>document.getElementById(id);
       const S = {
-        big: null, hd: null, bw: 0, bh: 0, w: 0, h: 0, r: 0.5, x: 0, y: 0, mode: 'overlay', step: 1, busy: false, compare: false, resultCanvas: null, exportBlob: null
+        big: null, hd: null, bw: 0, bh: 0, w: 0, h: 0, r: 0.5, x: 0, y: 0, mode: 'overlay', step: 1, busy: false, compare: false, a: 1, axis: 'both', cancel: false, resultCanvas: null, exportBlob: null
       };
       const view = $('view'), vctx = view.getContext('2d');
       const tick = ()=>new Promise(r => setTimeout(r, 0));
@@ -964,7 +1019,7 @@
         draw(); updateInfo();
       }
       function resetPlacement() {
-        S.r = Math.min(S.bw/S.w, S.bh/S.h)*0.6;
+        S.r = Math.min(S.bw/S.w, S.bh/S.h)*0.6; S.a = 1;
         S.x = (S.bw-S.w*S.r)/2; S.y = (S.bh-S.h*S.r)/2; S.resultCanvas = null;
       }
       $('fileBig').addEventListener('change', e=>onFile('big', e.target.files[0]));
@@ -988,7 +1043,7 @@
           const dx = S.x*d,
           dy = S.y*d,
           dw = S.w*S.r*d,
-          dh = S.h*S.r*d;
+          dh = S.h*S.r*S.a*d;
           const hdSmall = hdForDisplay(dw, dh);
           if (S.mode === 'overlay') {
             vctx.globalAlpha = $('opacity').value/100; vctx.drawImage(hdSmall, dx, dy, dw, dh); vctx.globalAlpha = 1
@@ -998,7 +1053,7 @@
           vctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--acc').trim() || '#BCCBB1';
           vctx.lineWidth = Math.max(1.5, cw/500); vctx.setLineDash([6, 5]); vctx.strokeRect(dx, dy, dw, dh); vctx.setLineDash([]);
         }
-        $('scaleOut').textContent = 'Scale '+S.r.toFixed(4)+'  ('+(1/S.r).toFixed(3)+'× smaller than HD)';
+        $('scaleOut').textContent = 'Width '+S.r.toFixed(4)+' · Height '+(S.r*S.a).toFixed(4)+' ('+(1/S.r).toFixed(2)+'× / '+(1/(S.r*S.a)).toFixed(2)+'× smaller)';
       }
       let hdDispCache = null;
       function hdForDisplay(dw, dh) {
@@ -1055,12 +1110,13 @@
         });
       ['pointerup', 'pointercancel', 'pointerleave'].forEach(t => view.addEventListener(t, e => {
         ptrs.delete(e.pointerId)}));
-      function zoomAbout(px,
-        py,
-        s) {
-        const nr = Math.min(5,
-          Math.max(0.02, S.r*s)), k = nr/S.r;
-        S.x = px-(px-S.x)*k; S.y = py-(py-S.y)*k; S.r = nr;
+      function zoomAbout(px, py, s, axis) {
+        axis = axis || S.axis;
+        const rx = S.r, ry = S.r*S.a;
+        const clampR = v => Math.min(5, Math.max(0.02, v));
+        const nrx = clampR(axis === 'y' ? rx : rx*s), nry = clampR(axis === 'x' ? ry : ry*s);
+        const kx = nrx/rx, ky = nry/ry;
+        S.x = px-(px-S.x)*kx; S.y = py-(py-S.y)*ky; S.r = nrx; S.a = nry/nrx;
       }
       view.addEventListener('wheel',
         e=> {
@@ -1101,7 +1157,7 @@
           if (!S.big||!S.hd)return;
           const f = 1+(+b.dataset.sc),
           cx = S.x+S.w*S.r/2,
-          cy = S.y+S.h*S.r/2; zoomAbout(cx, cy, f); moved();
+          cy = S.y+S.h*S.r*S.a/2; zoomAbout(cx, cy, f); moved();
         }));
       $('opacity').addEventListener('input', e=> {
         rng(e.target); $('opVal').textContent = e.target.value+'%'; draw()});
@@ -1123,7 +1179,7 @@
         if (!S.big||!S.hd || S.busy)return;
         setMode('result'); setStatus('Building preview…'); await tick();
         const k = Math.min(1, 900/(S.bw/S.r));
-        S.resultCanvas = compose(k); draw(); setStatus('Preview of the final blend. Switch back to Overlay to adjust.', 'ok');
+        S.cancel = false; S.resultCanvas = await compose(k); draw(); setStatus('Preview of the final blend. Switch back to Overlay to adjust.', 'ok');
       });
 
       /* ---------- auto-align ---------- */
@@ -1297,7 +1353,7 @@
           setStatus('Fine-tuning to sub-pixel accuracy…'); prog(92); await tick();
           const Bf = makeRef(Math.min(700, S.w));
           const fin = await descend(Bf.evalFn, best.p, 0.004, 0.7, 0.0003, 0.05, 260);
-          S.r = fin.p.r; S.x = fin.p.x; S.y = fin.p.y;
+          S.r = fin.p.r; S.a = 1; S.x = fin.p.x; S.y = fin.p.y;
           invalidate(); draw(); updateInfo(); prog(100);
           const sc = fin.score;
           if (sc >= 0.75)setStatus('Aligned. Match score '+sc.toFixed(2)+'. Check Difference view and nudge if you see an edge.', 'ok');
@@ -1310,22 +1366,29 @@
       $('btnAuto').addEventListener('click', autoAlign);
 
       /* ---------- compose ---------- */
-      function compose(k) {
-        const kk = k/S.r,
-        W = Math.round(S.bw*kk),
-        H = Math.round(S.bh*kk);
+      async function compose(k, onP) {
+        const P = async (pct, step, label)=> {
+          if (S.cancel)throw new Error('cancelled');
+          if (onP) {
+            onP(pct, step, label); await tick()}
+        };
+        const kx = k/S.r,
+        ky = k/(S.r*S.a),
+        W = Math.round(S.bw*kx),
+        H = Math.round(S.bh*ky);
+        await P(2, 0, 'Preparing canvas');
         const out = mk(W, H, true),
         g = out.getContext('2d');
         g.imageSmoothingQuality = 'high';
         g.drawImage(S.big, 0, 0, W, H);
-        const px = Math.round(S.x*kk),
-        py = Math.round(S.y*kk),
+        const px = Math.round(S.x*kx),
+        py = Math.round(S.y*ky),
         pw = Math.round(S.w*k),
         ph = Math.round(S.h*k);
         // redraw base shifted by the sub-pixel remainder so the HD lands on whole pixels
-        g.drawImage(S.big, px-S.x*kk, py-S.y*kk, S.bw*kk, S.bh*kk);
+        g.drawImage(S.big, px-S.x*kx, py-S.y*ky, S.bw*kx, S.bh*ky);
+        await P(12, 1, 'Placing the HD original');
         const reg = g.getImageData(px, py, pw, ph);
-        // HD at output scale
         const hdC = (pw === S.w && ph === S.h)?(()=> {
           const c = mk(pw, ph, true); c.getContext('2d').drawImage(S.hd, 0, 0); return c
         })(): (()=> {
@@ -1333,12 +1396,9 @@
           const c = mk(pw, ph, true),
           cg = c.getContext('2d'); cg.imageSmoothingQuality = 'high'; cg.drawImage(S.hd, 0, 0, pw, ph); return c
         })();
-        const hdD = hdC.getContext('2d').getImageData(0,
-          0,
-          pw,
-          ph);
+        const hdD = hdC.getContext('2d').getImageData(0, 0, pw, ph);
         const hd = hdD.data, rg = reg.data;
-        // low-frequency color correction
+        await P(22, 2, 'Matching colors');
         const cm = $('colorMatch').value/100;
         let corr = null;
         if (cm > 0) {
@@ -1360,8 +1420,10 @@
           ug.drawImage(dc, 0, 0, pw, ph);
           corr = ug.getImageData(0, 0, pw, ph).data;
         }
+        await P(36, 3, 'Blending edges');
         const fe = Math.max(0, $('feather').value*k);
         for (let y = 0; y < ph; y++) {
+          if (onP && y%48 === 0)await P(36+49*(y/ph), 3, 'Blending edges');
           const dy = Math.min(y, ph-1-y);
           for (let x = 0; x < pw; x++) {
             const i = (y*pw+x)*4,
@@ -1386,7 +1448,7 @@
       function outScale() {
         const v = $('outSize').value;
         if (v === 'native')return 1;
-        return (+v)/(Math.max(S.bw, S.bh)/S.r);
+        return (+v)/Math.max(S.bw/S.r, S.bh/(S.r*S.a));
       }
       function updateInfo() {
         if (!S.big||!S.hd) {
@@ -1394,7 +1456,7 @@
         }
         const k = outScale(),
         W = Math.round(S.bw*k/S.r),
-        H = Math.round(S.bh*k/S.r);
+        H = Math.round(S.bh*k/(S.r*S.a));
         let t = 'Output '+W+' × '+H+' px.';
         if (k > 1.001)t += ' The HD image will be stretched ×'+k.toFixed(2)+'.';
         else if (k < 0.999)t += ' The HD image will be shrunk.';
@@ -1415,14 +1477,16 @@
         if (!S.big||!S.hd || S.busy)return;
         const k = outScale(),
         W = Math.round(S.bw*k/S.r),
-        H = Math.round(S.bh*k/S.r);
+        H = Math.round(S.bh*k/(S.r*S.a));
         if (W*H > 200e6 || Math.max(W, H) > 16000) {
           setStatus('That size is too large for this browser. Pick a smaller output.', 'warn'); return
         }
-        setBusy(true); setStatus('Building the final image…'); await tick();
+        setBusy(true); S.cancel = false; openModal(W, H); await tick();
         try {
-          const c = compose(k);
+          const c = await compose(k, modalProgress);
+          modalProgress(86, 4, 'Encoding PNG', true); await tick();
           const blob = await new Promise((res, rej)=>c.toBlob(b => b?res(b): rej(new Error('The browser could not encode this size.')), 'image/png'));
+          if (S.cancel)throw new Error('cancelled');
           S.exportBlob = blob;
           const oc = $('outCanvas'),
           sc = Math.min(1, 900/c.width);
@@ -1430,13 +1494,74 @@
           const og = oc.getContext('2d'); og.imageSmoothingQuality = 'high'; og.drawImage(c, 0, 0, oc.width, oc.height);
           $('out').className = 'out on';
           $('btnSave').disabled = false;
-          snack('PNG ready'); setStatus('Done: '+c.width+' × '+c.height+' px, '+(blob.size/1048576).toFixed(1)+' MB. Press Save PNG.', 'ok');
+          modalDone(c.width, c.height, blob.size);
+          setStatus('Done: '+c.width+' × '+c.height+' px, '+(blob.size/1048576).toFixed(1)+' MB. Press Save PNG.', 'ok');
         }catch(err) {
-          setStatus(String(err && err.message || err), 'warn')}
+          if (err && err.message === 'cancelled') {
+            closeModal(); setStatus('Export cancelled.')}
+          else {
+            const msg = String(err && err.message || err); modalError(msg); setStatus(msg, 'warn')}
+        }
         finally {
           setBusy(false); $('btnSave').disabled=!S.exportBlob
         }
       });
+
+      /* ---------- progress dialog ---------- */
+      const M = {
+        state: 'idle', t0: 0
+      };
+      function openModal(W, H) {
+        M.state = 'run'; M.t0 = performance.now();
+        $('mDialog').className = 'dialog';
+        $('mTitle').textContent = 'Creating PNG';
+        $('mSub').textContent = W+' × '+H+' px';
+        $('mSave').hidden = true; $('mCancel').textContent = 'Cancel'; $('mCancel').disabled = false;
+        modalProgress(0, 0, 'Starting');
+        $('modal').hidden = false; document.body.style.overflow = 'hidden';
+        $('mDialog').focus();
+      }
+      function modalProgress(pct, step, label, indet) {
+        pct = Math.max(0, Math.min(100, pct));
+        $('mFill').style.width = pct+'%';
+        $('mBar').classList.toggle('indet', !!indet);
+        $('mBar').setAttribute('aria-valuenow', Math.round(pct));
+        $('mPct').textContent = Math.round(pct)+'%';
+        [...$('mSteps').children].forEach((li, i)=> {
+          li.className = i < step?'done': i === step?'active': '';
+        });
+        const el = (performance.now()-M.t0)/1000;
+        $('mEta').textContent = (pct > 8 && pct < 86 && el > 1.5)? '~'+Math.max(1, Math.round(el/pct*(86-pct)))+'s left': label+'…';
+      }
+      function modalDone(w, h, size) {
+        M.state = 'done';
+        $('mFill').style.width = '100%'; $('mBar').classList.remove('indet'); $('mBar').setAttribute('aria-valuenow', 100);
+        $('mPct').textContent = '100%'; $('mEta').textContent = '';
+        [...$('mSteps').children].forEach(li => li.className = 'done');
+        $('mDialog').className = 'dialog done';
+        $('mTitle').textContent = 'PNG ready';
+        $('mSub').textContent = w+' × '+h+' px · '+(size/1048576).toFixed(1)+' MB';
+        $('mSave').hidden = false; $('mCancel').textContent = 'Close'; $('mSave').focus();
+      }
+      function modalError(msg) {
+        M.state = 'err'; $('mBar').classList.remove('indet');
+        $('mDialog').className = 'dialog err'; $('mTitle').textContent = 'Something went wrong';
+        $('mSub').textContent = msg; $('mEta').textContent = ''; $('mCancel').textContent = 'Close';
+      }
+      function closeModal() {
+        M.state = 'idle'; $('modal').hidden = true; document.body.style.overflow = ''
+      }
+      $('mCancel').addEventListener('click', ()=> {
+        if (M.state === 'run') {
+          S.cancel = true; $('mCancel').disabled = true; $('mSub').textContent = 'Cancelling…'}
+        else closeModal();
+      });
+      $('mSave').addEventListener('click', ()=> {
+        $('btnSave').click(); setTimeout(closeModal, 250)});
+      $('modal').addEventListener('click', e=> {
+        if (e.target === $('modal') && M.state !== 'run')closeModal()});
+      document.addEventListener('keydown', e=> {
+        if (e.key === 'Escape' && !$('modal').hidden)$('mCancel').click()});
 
       $('btnSave').addEventListener('click',
         async()=> {
@@ -1489,6 +1614,14 @@
         el.addEventListener('drop', e=> {
           e.preventDefault(); el.classList.remove('drag'); onFile(kind, e.dataTransfer.files[0])});
       });
+      document.querySelectorAll('[data-axis]').forEach(b => b.addEventListener('click', ()=> {
+        S.axis = b.dataset.axis;
+        document.querySelectorAll('[data-axis]').forEach(x => x.setAttribute('aria-pressed', x === b?'true': 'false'));
+        snack(S.axis === 'both'?'Scaling width and height together': S.axis === 'x'?'Scaling width only': 'Scaling height only');
+      }));
+      $('btnAspect').addEventListener('click', ()=> {
+        if (!S.big||!S.hd)return;
+        const cy = S.y+S.h*S.r*S.a/2; S.a = 1; S.y = cy-S.h*S.r/2; moved(); setStatus('Stretch reset: width and height use the same scale.')});
       function rng(el) {
         el.style.setProperty('--pct',
           ((el.value-el.min)/(el.max-el.min)*100)+'%')}
