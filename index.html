@@ -30,6 +30,9 @@
       scroll-padding-top: calc(var(--safe-area-inset-top,0px) + 72px);
       color-scheme: dark;
       scroll-behavior: smooth
+      -webkit-user-select: none;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
     }
     *,*::before,*::after {
       box-sizing: inherit
@@ -45,6 +48,21 @@
       -webkit-tap-highlight-color: transparent;
       overscroll-behavior-y: none;
     }
+    [hidden] {
+      display: none!important
+    }
+
+    .safe-bottom-patch {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: calc(var(--safe-area-inset-bottom, 0px));
+      background-color: var(--surface);
+      z-index: 9999;
+      pointer-events: none;
+    }
+
     svg.i {
       width: 20px;
       height: 20px;
@@ -57,7 +75,7 @@
       top: 0;
       z-index: 5;
       background: var(--surface);
-      padding: 16px 16px 12px;
+      padding: calc(var(--safe-area-inset-top, 0px) + 16px ) 16px 12px;
       text-align: center;
       transition: background-color .2s,box-shadow .2s
     }
@@ -767,6 +785,8 @@
       </div>
     </section>
   </main>
+  <div class="safe-bottom-patch"></div>
+
   <div class="snack" id="snack" role="status" aria-live="polite"></div>
   <script>
     (function() {
