@@ -1113,6 +1113,8 @@
           <input type="range" id="colorMatch" min="0" max="100" value="0"></label>
         <label class="f"><span>Match reach <b id="mrVal">80</b> px</span>
           <input type="range" id="matchReach" min="10" max="300" value="80"></label>
+        <button id="mApply" style="min-height:40px;padding:6px 20px">Apply</button>
+
       </div>
       <div class="row">
         <label class="f"><span>Output size</span>
@@ -1432,6 +1434,13 @@
         const k = Math.min(1, 900/(S.bw/S.r));
         S.cancel = false; S.resultCanvas = await compose(k); draw(); setStatus('Preview of the final blend. Switch back to Overlay to adjust.', 'ok');
       });
+      $('mApply').addEventListener('click',
+        async()=> {
+          if (!S.big||!S.hd || S.busy)return;
+          setMode('result'); setStatus('Building preview…'); await tick();
+          const k = Math.min(1, 900/(S.bw/S.r));
+          S.cancel = false; S.resultCanvas = await compose(k); draw(); setStatus('Preview of the final blend. Switch back to Overlay to adjust.', 'ok');
+        });
 
       /* ---------- auto-align ---------- */
       function setBusy(b) {
